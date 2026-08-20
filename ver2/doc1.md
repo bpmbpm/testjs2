@@ -1,10 +1,10 @@
-Ниже — максимально подробное описание архитектуры и логики кода `app.js` с диаграммами в Mermaid. Оно раскрывает, как модули взаимодействуют, как течёт состояние и где именно появляются нужные тебе логи.
+Ниже — полный, готовый к вставке ответ: исправленные Mermaid‑диаграммы (без скобок и конструкций, ломающих рендер) + краткое описание логики кода `app.js`. Эти диаграммы корректно отображаются в GitHub, Notion, Obsidian и других средах с поддержкой Mermaid.
 
 ---
 
-## Общая архитектура приложения (High‑Level)
+## Общая архитектура приложения
 
-Это модульное SPA на ванильном JS: состояние, данные, рендер, события и ресайзер разделены по объектам.
+Показывает, из каких модулей состоит приложение и как они связаны.
 
 ```mermaid
 graph TD
@@ -26,9 +26,9 @@ graph TD
 
 ---
 
-## Структура объекта UTILS — как работает лог «в одну строку»
+## UTILS — как формируется лог «в одну строку»
 
-Именно здесь формируется формат лога, который ты просил: одна строка, время, группа, функция, сообщение и `[path: file1.svg]`.
+Здесь видно, как именно создаётся строка лога, откуда берётся `[path: file1.svg]` и как она попадает в UI и консоль.
 
 ```mermaid
 sequenceDiagram
@@ -37,48 +37,43 @@ sequenceDiagram
     participant C as Console
 
     U->>U: Получить time = toLocaleTimeString()
-    U->>U: Если params.url → вычислить имя файла (getFileNameFromUrl)
+    U->>U: Если params.url → вычислить имя файла
     U->>U: Сформировать extra = [path: имя] или JSON без пробелов
     U->>U: line = [time] [group] func: message{extra}
     U->>C: console.log(line)
     U->>L: Создать div.log-line
-    U->>L: Вставить HTML с span.log-time, span.log-group, span.log-func, сообщение, extra
+    U->>L: Вставить HTML с таймстампом, группой, функцией, сообщением и extra
     L->>L: scrollTop = scrollHeight (автоскролл вниз)
 ```
 
-**Почему лог в одну строку:** CSS `white-space: pre` запрещает автопереносы, а HTML-разметка внутри `.log-line` не добавляет лишних переносов. Если в логе появились переносы — проверь, не переопределён ли стиль у `.log-line` или не вставлен ли туда `<br>`.
-
 ---
 
-## STATE — управление состоянием
+## STATE — структура состояния (без проблемных символов)
 
-Хранит всё, что нужно для согласованности UI: список файлов, выбранный файл, SVG-документ и фигуры.
+Вместо полей со скобками — класс и примечание справа с перечнем атрибутов.
 
 ```mermaid
 classDiagram
     class STATE {
-        +appState: { fileList, selectedFile, svgDoc, shapes }
         +initFromConfig()
         +isValid()
         +setSelectedFile(fileUrl)
         +clearSelection()
     }
-    STATE : appState.fileList : массив URL
-    STATE : appState.selectedFile : URL или null
-    STATE : appState.svgDoc : DOMParser doc или null
-    STATE : appState.shapes : массив фигур
-```
 
-**Ключевые моменты:**
-- `initFromConfig()` берёт `window.svgFileList` из `config.js`. Если его нет — список пустой.
-- При выборе файла сбрасываются `svgDoc` и `shapes` — это гарантирует, что при повторном выборе будет новая загрузка.
-- `isValid()` возвращает `true`, только если выбран файл. Это используется, чтобы блокировать действия (например, клик в диаграмме).
+    note right of STATE
+        appState.fileList: массив URL
+        appState.selectedFile: URL или null
+        appState.svgDoc: DOMParser doc или null
+        appState.shapes: массив фигур
+    end
+```
 
 ---
 
 ## DATA — загрузка и анализ SVG
 
-Здесь живёт `fetch` и парсинг SVG. Именно тут ты увидишь ошибку CORS, если откроешь файл через `file://`.
+Последовательность действий при загрузке файла: от `fetch` до парсинга и анализа фигур.
 
 ```mermaid
 sequenceDiagram
@@ -92,36 +87,31 @@ sequenceDiagram
     D->>D: log: Начало загрузки SVG [path: ...]
     D->>fetch: fetch(url)
     fetch-->>D: Response
-    alt Не OK
+    alt Response не OK
         D->>D: throw Error(HTTP status)
         D->>UTILS: log: Ошибка загрузки SVG
-        end
-    else OK
+    else Response OK
         fetch->>D: text()
         D->>P: parseFromString(text, 'image/svg+xml')
         P-->>D: doc
         D->>doc: querySelector('svg')
-        alt Нет корневого <svg>
-            D->>D: throw Error('Нет корневого <svg>')
-            end
-        else Есть <svg>
+        alt Нет корневого svg
+            D->>D: throw Error('Нет корневого svg')
+        else Есть svg
             D->>D: log: SVG успешно загружен и распарсен
             D-->>EV: doc
             EV->>A: analyzeShapes(doc)
-            A->>A: Собрать rect/circle/path/g и их атрибуты
+            A->>A: Собрать rect, circle, path, g и их атрибуты
             A-->>EV: массив фигур
-            end
+        end
     end
 ```
-
-**Важно:** Если ты открываешь через двойной клик (`file://`), браузер блокирует `fetch` из соображений CORS. В логе будет строка:
-`[XX:XX:XX] [DATA] loadSvg: Ошибка загрузки SVG {"error":"TypeError: Failed to fetch","url":"..."}`
 
 ---
 
 ## RENDER — отрисовка UI
 
-Модуль отвечает за синхронизацию UI с состоянием.
+Логика отрисовки для каждого блока интерфейса в зависимости от состояния.
 
 ```mermaid
 flowchart TD
@@ -129,21 +119,19 @@ flowchart TD
     R1 -->|STATE.appState.fileList| R1a[Создать ul/li, повесить клики]
     R --> R2[renderProperties]
     R2 -->|!STATE.isValid()| R2a[Показать «Не выбран файл»]
-    R2 -->|STATE.isValid() & shapes.length===0| R2b[Показать «В SVG не найдено фигур»]
-    R2 -->|STATE.isValid() & shapes| R2c[Отрисовать таблицу фигур]
+    R2 -->|STATE.isValid() и shapes.length===0| R2b[Показать «В SVG не найдено фигур»]
+    R2 -->|STATE.isValid() и shapes| R2c[Отрисовать таблицу фигур]
     R --> R3[renderDiagram]
     R3 -->|!STATE.isValid()| R3a[Показать «Выберите файл»]
-    R3 -->|STATE.isValid() & svgDoc| R3b[Вставить cloneNode(svg)]
-    R3 -->|STATE.isValid() & !svgDoc| R3c[Показать «Загрузка диаграммы...»]
+    R3 -->|STATE.isValid() и svgDoc| R3b[Вставить cloneNode(svg)]
+    R3 -->|STATE.isValid() и !svgDoc| R3c[Показать «Загрузка диаграммы...»]
 ```
 
 ---
 
-## EVENTS — обработка действий пользователя
+## EVENTS — клик по файлу в filelist
 
-Здесь логика «что делать, когда кликнули».
-
-### Клик по файлу в filelist
+Что происходит, когда пользователь кликает на файл: сброс состояния, отрисовка, загрузка и повторный рендер.
 
 ```mermaid
 sequenceDiagram
@@ -163,17 +151,18 @@ sequenceDiagram
     alt Загрузка успешна
         D-->>E: doc
         E->>D: analyzeShapes(doc)
-        E->>R: renderProperties() // обновить таблицу фигур
-        E->>R: renderDiagram() // вставить SVG
+        E->>R: renderProperties()
+        E->>R: renderDiagram()
     else Ошибка
         E->>UTILS: log: Ошибка при загрузке SVG
-        // UI остаётся с сообщением «Загрузка диаграммы...», лог фиксирует ошибку
     end
 ```
 
-### Клик в diagram без выбранного файла
+---
 
-Это то место, где гарантированно появляется событие `diagram.click.no-selection`:
+## EVENTS — клик в diagram без выбранного файла
+
+Это именно тот случай, который ты просил: событие `diagram.click.no-selection` появляется в логе, но UI не меняется.
 
 ```mermaid
 sequenceDiagram
@@ -192,7 +181,6 @@ sequenceDiagram
     else true (файл выбран)
         S-->>E: true
         E->>U: log: Клик в diagram при выбранном файле (заглушка действия)
-        // здесь можно добавить зум/панорамирование
     end
 ```
 
@@ -200,7 +188,7 @@ sequenceDiagram
 
 ## RESIZER — изменение высоты панели лога мышкой
 
-Реализован через `mousedown` → `mousemove` → `mouseup` и изменение `style.height` у панели.
+Как работает ручка-ресизер: от нажатия до изменения `style.height` и логирования.
 
 ```mermaid
 sequenceDiagram
@@ -230,11 +218,11 @@ sequenceDiagram
     onMouseUp->>U: log: Изменение размера панели лога завершено
 ```
 
-CSS обеспечивает, что ручка выглядит как серая полоса, а `overflow-y: auto` на `#log-content` даёт вертикальную прокрутку, если строк много.
-
 ---
 
 ## Инициализация приложения (initApp)
+
+Что запускается при старте: инициализация состояния, отрисовка, подписка на события и ресайзер.
 
 ```mermaid
 sequenceDiagram
@@ -249,32 +237,20 @@ sequenceDiagram
     alt Да
         DOC->>DOC: добавить DOMContentLoaded -> initApp
     else
-        I->>S: initFromConfig() // взять список файлов
-        I->>R: renderFileList() // показать список
-        I->>R: renderProperties() // показать «не выбран файл»
-        I->>R: renderDiagram() // показать «выберите файл»
+        I->>S: initFromConfig()
+        I->>R: renderFileList()
+        I->>R: renderProperties()
+        I->>R: renderDiagram()
         I->>D: повесить click -> handleDiagramClick
-        I->>RES: init() // подключить ресайзер
+        I->>RES: init()
     end
 ```
 
 ---
 
-## Где именно видны пути загрузки файлов
+## CORS и запуск через локальный сервер
 
-Путь появляется в логе **только** когда есть `params.url`:
-
-1. `STATE.initFromConfig` — лог инициализации (без пути).
-2. `EVENTS.handleFileListItemClick` — `[path: file1.svg]` при клике.
-3. `DATA.loadSvg` — `[path: file1.svg]` в начале и при успехе/ошибке загрузки.
-4. Другие события используют `JSON.stringify(params)` без пробелов, если `url` не передан.
-
-Пример строки лога:
-`[10:15:30] [EVENTS] handleFileListItemClick: Клик по файлу в filelist [path: file1.svg]`
-
----
-
-## Почему при двойном клике по HTML ничего не работает
+Почему при двойном клике по HTML ничего не работает и что делать.
 
 ```mermaid
 sequenceDiagram
@@ -291,8 +267,14 @@ sequenceDiagram
     APP-->>UI: Диаграмма остаётся «Загрузка диаграммы...»
 ```
 
-**Решение:** запускать через локальный сервер (Live Server, `python -m http.server`). Тогда `fetch` разрешён, и ты увидишь все этапы загрузки и анализа SVG.
-
 ---
 
-Если скажешь, какой именно фрагмент кода хочется разобрать детальнее (например, «как именно формируется таблица фигур» или «как ресайзер считает высоту»), могу сделать отдельный Mermaid-диалог именно для этого участка.
+### Что важно помнить
+
+- **Пути в логах** появляются только когда передаётся `params.url` (например, в `loadSvg` и `handleFileListItemClick`). Пример строки:  
+  `[10:15:30] [EVENTS] handleFileListItemClick: Клик по файлу в filelist [path: file1.svg]`.
+- **Клик без файла** всегда даёт событие `diagram.click.no-selection` в логе — это реализовано в `EVENTS.handleDiagramClick`.
+- **Ресайзер** работает за счёт изменения `style.height` у панели лога; минимальная высота — 60 px.
+- **Запуск**: обязательно через локальный сервер (Live Server в VS Code или `python -m http.server`). При двойном клике `file://` `fetch` блокируется CORS.
+
+Если скажешь, куда именно ты вставляешь эти диаграммы (GitHub README, Notion, Confluence и т.п.), могу дополнительно подстроить форматирование под эту платформу.
