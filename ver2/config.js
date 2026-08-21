@@ -1,4 +1,4 @@
-// config.js — только массив ссылок. Легко добавлять новые файлы.
+// config.js вЂ” С‚РѕР»СЊРєРѕ РјР°СЃСЃРёРІ СЃСЃС‹Р»РѕРє. Р›РµРіРєРѕ РґРѕР±Р°РІР»СЏС‚СЊ РЅРѕРІС‹Рµ С„Р°Р№Р»С‹.
 window.svgFileList = [
     'https://bpmbpm.github.io/testjs2/ver1/svg/file1.svg',
     'https://bpmbpm.github.io/testjs2/ver1/svg/file1-1.svg',
