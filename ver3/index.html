@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <title>SVG Viewer</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<h1>SVG Viewer (Filelist / Properties / Diagram / Log)</h1>
+
+<div class="layout-grid">
+    <!-- filelist -->
+    <div class="panel">
+        <div class="panel-title">filelist</div>
+        <div id="filelist-content">
+            <p style="padding:12px; color:#666;">Загрузка списка файлов...</p>
+        </div>
+    </div>
+
+    <!-- properties -->
+    <div class="panel" style="grid-row: 2;">
+        <div class="panel-title">properties</div>
+        <div id="properties-content">
+            <div style="padding:24px; color:#666;">Выберите файл в filelist</div>
+        </div>
+    </div>
+
+    <!-- diagram -->
+    <div class="panel" style="grid-column: 2; grid-row: 1 / 3;">
+        <div class="panel-title">diagram</div>
+        <div id="diagram-content">
+            <div class="diag-message">Выберите файл в filelist для отображения диаграммы</div>
+        </div>
+    </div>
+
+    <!-- log с ресайзером -->
+    <div class="panel" style="grid-column: 1 / 3;">
+        <div class="panel-title">log</div>
+        <div id="log-content"></div>
+        <div class="resizer-handle" id="log-resizer"></div>
+    </div>
+</div>
+
+<!-- ВАЖНО: сначала config, потом app -->
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
