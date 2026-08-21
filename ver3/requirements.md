@@ -1,9 +1,7 @@
-
 ---
 
 ### 2. `requirements.md` (Требования)
 
-```markdown
 # Требования к SVG Viewer (ver3)
 
 ## 1. Функциональные требования (Functional Requirements)
