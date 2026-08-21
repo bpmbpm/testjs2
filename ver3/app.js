@@ -11,7 +11,6 @@ const UTILS = {
             const name = this.getFileNameFromUrl(params.url);
             extra = ` [path: ${name}]`;
         } else if (Object.keys(params).length > 0) {
-            // компактный JSON без пробелов
             extra = ' ' + JSON.stringify(params).replace(/\s+/g, ' ');
         }
 
@@ -23,13 +22,8 @@ const UTILS = {
 
         const div = document.createElement('div');
         div.className = 'log-line';
-        div.innerHTML = `
-            <span class="log-time">${time}</span>
-            <span class="log-group">${groupName}</span>
-            <span class="log-func">${funcName}</span>:
-            ${message}
-            ${extra ? '<span style="color:#aaa;">' + extra + '</span>' : ''}
-        `;
+        // Формируем HTML строго в одну строку, чтобы избежать паразитных переносов и пустых строк
+        div.innerHTML = `<span class="log-time">${time}</span> <span class="log-group">${groupName}</span> <span class="log-func">${funcName}</span>: ${message}${extra ? ' <span style="color:#aaa;">' + extra + '</span>' : ''}`;
         el.appendChild(div);
         el.scrollTop = el.scrollHeight;
     },
@@ -230,30 +224,26 @@ const EVENTS = {
             })
             .catch(err => {
                 UTILS.log('EVENTS', 'handleFileListItemClick', 'Ошибка при загрузке SVG после клика', { error: err.message, url });
-                // Оставляем сообщение только в логе, без UI-ошибок поверх диаграммы
             });
     },
 
     handleDiagramClick: function() {
         UTILS.log('EVENTS', 'handleDiagramClick', 'Клик в область diagram');
         if (!STATE.isValid()) {
-            // Именованное событие: только лог, без alert и без красных надписей
             UTILS.log('EVENTS', 'diagram.click.no-selection', 'Не выбран элемент filelist — действие невозможно', {});
             return;
         }
         UTILS.log('EVENTS', 'handleDiagramClick', 'Клик в diagram при выбранном файле (заглушка действия)', {});
-        // Здесь можно добавить зум/панорамирование и т.п.
     }
 };
 
 // ---------------------------------------------------------
-// Ресайзер для панели лога
+// Ресайзер для ВЕРХНЕЙ границы панели лога
 // ---------------------------------------------------------
 const RESIZER = {
     init: function() {
         const handle = document.getElementById('log-resizer');
         const logPanel = handle.parentElement; // .panel
-        const gridContainer = logPanel.parentElement; // .layout-grid
 
         let startY;
         let startHeight;
@@ -263,16 +253,19 @@ const RESIZER = {
             startHeight = logPanel.offsetHeight;
             document.addEventListener('mousemove', onMouseMove);
             document.addEventListener('mouseup', onMouseUp);
+            e.preventDefault(); // Предотвращаем выделение текста при перетаскивании
             UTILS.log('RESIZER', 'onMouseDown', 'Начало изменения размера панели лога');
         }
 
         function onMouseMove(e) {
-            const diff = startY - e.clientY;
+            // Если тянем мышь вниз (e.clientY увеличивается), высота панели должна уменьшаться
+            const diff = e.clientY - startY;
             const newHeight = startHeight - diff;
+            
             // Минимальная высота 60px, чтобы не схлопнулась
             if (newHeight < 60) return;
+            
             logPanel.style.height = `${newHeight}px`;
-            UTILS.log('RESIZER', 'onMouseMove', 'Изменение высоты панели лога', { height: newHeight });
         }
 
         function onMouseUp() {
