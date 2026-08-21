@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <title>SVG Viewer Test (config.js)</title>
+    <style>
+      body { font-family: Arial, sans-serif; padding: 10px; }
+      #log-content {
+        border: 1px solid #ccc;
+        height: 200px;
+        overflow-y: auto;
+        margin-top: 10px;
+        font-family: monospace;
+        font-size: 12px;
+        background: #f5f5f5;
+      }
+      .log-line {
+        padding: 4px 6px;
+        border-bottom: 1px solid #eee;
+      }
+      #diagram-container {
+        border: 1px dashed #999;
+        padding: 10px;
+        min-height: 300px;
+        margin-top: 10px;
+      }
+      svg {
+        max-width: 100%;
+        height: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>SVG Viewer Test — берём первый URL из config.js</h2>
+    <p>
+      <button id="load-btn">Загрузить первый SVG из config.js</button>
+    </p>
+
+    <div>
+      <strong>Лог:</strong>
+    </div>
+    <div id="log-content"></div>
+
+    <div>
+      <strong>Диаграмма:</strong>
+    </div>
+    <div id="diagram-container"></div>
+
+    <!-- 1. Сначала подключаем config.js, чтобы window.svgFileList был инициализирован -->
+    <script src="config.js"></script>
+
+    <!-- 2. Утилиты (логирование) -->
+    <script>
+      const UTILS = {
+        log: function(groupName, funcName, message, params = {}) {
+          const time = new Date().toLocaleTimeString();
+          let extra = '';
+
+          if (params.url) {
+            const name = this.getFileNameFromUrl(params.url);
+            extra = ` [path: ${name}]`;
+          } else if (Object.keys(params).length > 0) {
+            extra = ' ' + JSON.stringify(params).replace(/\s+/g, ' ');
+          }
+
+          const line = `[${time}] [${groupName}] ${funcName}: ${message}${extra}`;
+          console.log(line);
+
+          const el = document.getElementById('log-content');
+          if (!el) return;
+
+          const div = document.createElement('div');
+          div.className = 'log-line';
+          div.innerHTML = `
+            <span style="color:#666; margin-right:6px;">${time}</span>
+            <strong>[${groupName}]</strong>
+            <span style="color:#0066cc; margin-right:6px;">${funcName}</span>:
+            ${message}
+            ${extra ? '<span style="color:#888;">' + extra + '</span>' : ''}
+          `;
+          el.appendChild(div);
+          el.scrollTop = el.scrollHeight;
+        },
+
+        getFileNameFromUrl: function(url) {
+          try {
+            const path = new URL(url).pathname;
+            return path.substring(path.lastIndexOf('/') + 1);
+          } catch (e) {
+            return url;
+          }
+        }
+      };
+    </script>
+
+    <!-- 3. Модуль DATA с твоим фрагментом loadSvg без изменений -->
+    <script>
+      const DATA = {
+        loadSvg: async function(url) {
+          UTILS.log('DATA', 'loadSvg', 'Начало загрузки SVG', { url });
+          try {
+            // Именно здесь сработает CORS, если открываешь file:// и URL ведёт на github.io
+            const r = await fetch(url);
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const text = await r.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(text, 'image/svg+xml');
+            const svgEl = doc.querySelector('svg');
+            if (!svgEl) throw new Error('Нет корневого <svg>');
+            UTILS.log('DATA', 'loadSvg', 'SVG успешно загружен и распарсен', { url });
+            return doc;
+          } catch (err) {
+            UTILS.log('DATA', 'loadSvg', 'Ошибка загрузки SVG', { error: err.message, url });
+            throw err;
+          }
+        }
+      };
+    </script>
+
+    <!-- 4. Основная логика теста: читаем первый URL из config.js -->
+    <script>
+      (function() {
+        const btn = document.getElementById('load-btn');
+        const container = document.getElementById('diagram-container');
+
+        btn.addEventListener('click', async () => {
+          // ВАЖНО: берём первый URL именно из window.svgFileList (из config.js)
+          const url = (window.svgFileList || [])[0];
+
+          if (!url) {
+            UTILS.log('TEST', 'click', 'В config.js нет списка файлов (window.svgFileList пуст)');
+            return;
+          }
+
+          UTILS.log('TEST', 'click', 'Начинаем загрузку по URL из config.js', { url });
+
+          try {
+            // Используем ровно тот код loadSvg, который ты просил разобрать
+            const doc = await DATA.loadSvg(url);
+
+            // Очищаем контейнер и вставляем SVG
+            container.innerHTML = '';
+            const svg = doc.querySelector('svg');
+            const clone = svg.cloneNode(true); // клонируем с детьми
+            container.appendChild(clone);
+
+            UTILS.log('TEST', 'onSuccess', 'SVG отображён в контейнере', { url });
+          } catch (err) {
+            UTILS.log('TEST', 'onError', 'Не удалось отобразить SVG', { error: err.message });
+            container.innerHTML = '<p style="color:red;">Ошибка: ' + err.message + '</p>';
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>
